@@ -1,121 +1,177 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react"
+import "./App.css"
+
+import { buscarPeliculas, buscarDetalle } from "./api/omdb"
+
+import SearchBar from "./components/SearchBar"
+import MovieList from "./components/MovieList"
+import MovieDetail from "./components/MovieDetail"
+import Loader from "./components/Loader"
+import ErrorMessage from "./components/ErrorMessage"
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [busqueda, setBusqueda] = useState("")
+  const [tipo, setTipo] = useState("")
+
+  const [resultados, setResultados] = useState([])
+  const [ultimaBusqueda, setUltimaBusqueda] = useState("")
+
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState("")
+  const [sinNada, setSinNada] = useState(false)
+
+  const [modalAbierta, setModalAbierta] = useState(false)
+  const [detalle, setDetalle] = useState(null)
+  const [cargandoDetalle, setCargandoDetalle] = useState(false)
+  const [errorDetalle, setErrorDetalle] = useState("")
+
+  useEffect(() => {
+    if (resultados.length > 0) {
+      document.title = `${resultados.length} resultados | Buscador de pelis`
+    } else {
+      document.title = "Buscador de pelis"
+    }
+
+    return () => {
+      document.title = "Buscador de pelis"
+    }
+  }, [resultados.length])
+
+  async function onBuscar() {
+    const textoLimpio = busqueda.trim()
+
+    console.log("Texto original:", busqueda)
+    console.log("Texto limpio:", textoLimpio)
+
+    if (textoLimpio === "") {
+      setError("Escribí algo antes de buscar.")
+      setResultados([])
+      setSinNada(false)
+      return
+    }
+
+    setCargando(true)
+    setError("")
+    setSinNada(false)
+    setResultados([])
+    setUltimaBusqueda(textoLimpio)
+
+    setModalAbierta(false)
+    setDetalle(null)
+    setErrorDetalle("")
+
+    try {
+      const data = await buscarPeliculas(textoLimpio, tipo)
+
+      console.log("Respuesta búsqueda:", data)
+
+      if (data.Response === "False") {
+        setSinNada(true)
+        setResultados([])
+        return
+      }
+
+      setResultados(data.Search || [])
+    } catch (err) {
+      console.log("Error al buscar películas:", err)
+
+      if (err.response?.status === 401) {
+        setError("La API key fue rechazada. Si sigue así, el problema no es React: es la key.")
+      } else {
+        setError("Hubo un problema al buscar. Revisá la conexión o la API.")
+      }
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  function onLimpiar() {
+    setBusqueda("")
+    setTipo("")
+    setResultados([])
+    setUltimaBusqueda("")
+    setCargando(false)
+    setError("")
+    setSinNada(false)
+
+    setModalAbierta(false)
+    setDetalle(null)
+    setCargandoDetalle(false)
+    setErrorDetalle("")
+  }
+
+  async function abrirDetalle(id) {
+    console.log("Pidiendo detalle para ID:", id)
+
+    setModalAbierta(true)
+    setCargandoDetalle(true)
+    setDetalle(null)
+    setErrorDetalle("")
+
+    try {
+      const data = await buscarDetalle(id)
+
+      console.log("Respuesta detalle:", data)
+
+      if (data.Response === "False") {
+        setErrorDetalle("No pude cargar el detalle de esa peli.")
+        return
+      }
+
+      setDetalle(data)
+    } catch (err) {
+      console.log("Error al pedir detalle:", err)
+      setErrorDetalle("No pude cargar el detalle de esa peli.")
+    } finally {
+      setCargandoDetalle(false)
+    }
+  }
+
+  function cerrarDetalle() {
+    setModalAbierta(false)
+    setDetalle(null)
+    setCargandoDetalle(false)
+    setErrorDetalle("")
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main className="app">
+      <SearchBar
+        busqueda={busqueda}
+        setBusqueda={setBusqueda}
+        tipo={tipo}
+        setTipo={setTipo}
+        onBuscar={onBuscar}
+        onLimpiar={onLimpiar}
+      />
 
-      <div className="ticks"></div>
+      {cargando && <Loader texto="Buscando resultados..." />}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {!cargando && error && <ErrorMessage mensaje={error} />}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {!cargando && sinNada && (
+        <div className="sinResultados">
+          <h3>No encontré nada con ese nombre.</h3>
+          <p>Probá con otro título o cambiá el tipo de búsqueda.</p>
+        </div>
+      )}
+
+      {!cargando && resultados.length > 0 && (
+        <MovieList
+          resultados={resultados}
+          onAbrirDetalle={abrirDetalle}
+          ultimaBusqueda={ultimaBusqueda}
+        />
+      )}
+
+      <MovieDetail
+        abierta={modalAbierta}
+        detalle={detalle}
+        cargando={cargandoDetalle}
+        error={errorDetalle}
+        onCerrar={cerrarDetalle}
+      />
+    </main>
   )
 }
 
